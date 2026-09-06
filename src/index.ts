@@ -61,10 +61,10 @@ export default {
   manifest: {
     id: '@aymwoo/plugin-legacy-migrator',
     name: '旧版数据迁移',
-    version: '0.1.1',
+    version: '0.1.2',
     description: '将旧版 LearnSite 导出包（班级/学生/课程及资源文件）导入 openlearn-next，支持 dry-run 预览、幂等重放与导入审计',
     author: 'WuXiangfeng',
-    engines: { openlearn: '>=0.3.0' },
+    engines: { openlearn: '>=0.2.5' },
     requires: [
       '@openlearn/core:ICommandBusService@^1.0.0',
       '@openlearn/core:IEventBusService@^1.0.0',

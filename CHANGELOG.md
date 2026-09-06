@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-06
+
+### Fixed
+
+- 放宽 `engines.openlearn` 为 `>=0.2.5`：npm 发行版宿主（openlearn-next@0.2.5）安装时因版本声明过紧被拒。插件依赖的 IDatabase/ICommandBus/IEventBus 服务在 0.2.5 均已存在（与内置教务管理插件同一套 API），0.2.5 及以上宿主均可正常安装运行。
+
 ## [0.1.1] - 2026-09-06
 
 ### Changed
