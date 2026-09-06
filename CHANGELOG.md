@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-06
+
+### Changed
+
+- 确认与旧站跨平台导出页（learnsite `manager/export_openlearn_next.aspx`，2026-09-06 及之后版本）的配套契约：导出包 zip 条目名带 UTF-8 EFS 标志，中文资源路径（如 `resources/课件/讲义.pdf`）在导入端经 JSZip 正确解析并改写为 `/files/legacy/...`。已通过 Mono 生成 → unzip 解压 → JSZip 读取的全链路实测。
+- README 补充导出页版本要求与 inline 执行模式说明。
+
+### Fixed
+
+- 无插件代码变更；本版本为配套旧站导出页跨平台修复（SetLevel 编译错误、Linux 路径守卫、zip 中文乱码）的同步发布。
+
 ## [0.1.0] - 2026-09-06
 
 ### Features
