@@ -61,7 +61,7 @@ export default {
   manifest: {
     id: '@aymwoo/plugin-legacy-migrator',
     name: '旧版数据迁移',
-    version: '0.1.2',
+    version: '0.1.3',
     description: '将旧版 LearnSite 导出包（班级/学生/课程及资源文件）导入 openlearn-next，支持 dry-run 预览、幂等重放与导入审计',
     author: 'WuXiangfeng',
     engines: { openlearn: '>=0.2.5' },
@@ -77,6 +77,17 @@ export default {
     const commandBus = ctx.services.commandBus;
     const eventBus = ctx.services.eventBus;
     const db = (await ctx.resolve(IDatabaseToken)) as AnyDb;
+
+    // 执行模式自检：worker 模式下 DB 是异步 RPC 代理（all() 返回 Promise 而非数组），
+    // 且核心表黑名单禁止本插件所需的 classes/students/courseware 写入——必须 inline 运行。
+    const probe = db.prepare('SELECT 1 AS x').all();
+    if (!Array.isArray(probe)) {
+      throw new Error(
+        '旧版数据迁移插件必须以 inline 执行模式运行（当前为 worker 模式）。' +
+          '请在插件中心重新上传插件包并选择 inline 模式，' +
+          "或直接在宿主数据库执行 UPDATE plugins SET execution_mode = 'inline' 后重启服务。",
+      );
+    }
 
     // 插件自有审计表（命名空间隔离）：每次导入动作一行，卸载插件时自动清理
     await ctx.db.ensureTable(

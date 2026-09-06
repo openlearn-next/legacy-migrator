@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-06
+
+### Fixed
+
+- 激活时自检执行模式：宿主以 worker 模式安装本插件时，DB 接口为异步 RPC 代理且核心表黑名单禁止迁移写入，此前会在导入中途报难以理解的 `db.prepare(...).all(...).map is not a function`。现在 activate 阶段即探测并抛出明确的中文错误与修复指引（重装选 inline，或 `UPDATE plugins SET execution_mode = 'inline'` 后重启）。
+
 ## [0.1.2] - 2026-09-06
 
 ### Fixed
