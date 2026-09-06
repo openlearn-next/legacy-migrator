@@ -62,7 +62,7 @@ export default {
   manifest: {
     id: '@aymwoo/plugin-legacy-migrator',
     name: '旧版数据迁移',
-    version: '0.2.0',
+    version: '0.2.1',
     description: '将旧版 LearnSite 导出包（班级/学生/课程及资源文件）导入 openlearn-next，支持 dry-run 预览、幂等重放与导入审计',
     author: 'WuXiangfeng',
     engines: { openlearn: '>=0.2.5' },
@@ -167,6 +167,57 @@ export default {
         'INSERT INTO vfs_nodes (id, parent_id, type, name, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ).run(uuid(), parentId, 'file', fileName, base64, now(), now());
       return { url, created: true };
+    }
+
+    /** 为一门课程补建/幂等获取课程条目（lesson），供导入与"课件已存在补建课程"两条路径共用 */
+    async function ensureLessonForCourse(
+      p: { sourceId: string; title: string; html: string; force?: boolean },
+      actorId: string,
+    ): Promise<{ lessonId?: string; lessonSkipped: boolean; lessonError?: string }> {
+      const prevLesson = db
+        .prepare(`SELECT target_id FROM ${batchTable} WHERE kind = 'lesson' AND source_key = ? ORDER BY created_at DESC`)
+        .get(p.sourceId);
+      if (prevLesson?.target_id && !p.force) {
+        return { lessonId: prevLesson.target_id, lessonSkipped: true };
+      }
+      try {
+        const md = htmlToMarkdown(p.html);
+        const content = [
+          `> 本课程由旧版 LearnSite 迁移而来（来源编号 ${p.sourceId}）。`,
+          `> 完整交互内容请打开同名 HTML 课件「${p.title}」（系统资源库），课程页图片即该课件的资源文件。`,
+          '',
+          md,
+        ].join('\n');
+        const lcmd = await commandBus.createCommand(
+          'lesson.create',
+          { title: p.title, content },
+          actorId,
+          { approved: true },
+        );
+        const lr: any = await commandBus.execute(lcmd);
+        const lessonId = lr?.lessonId ?? lr?.result?.lessonId;
+        if (lessonId) {
+          recordBatch('lesson', p.sourceId, lessonId, { title: p.title });
+          const scmd = await commandBus.createCommand(
+            'lesson.add_segment',
+            {
+              lessonId,
+              title: '互动练习',
+              duration: '40m',
+              type: 'practice',
+              notes: `打开本课迁移的 HTML 课件「${p.title}」（系统资源库）进行互动教学`,
+            },
+            actorId,
+            { approved: true },
+          );
+          await commandBus.execute(scmd);
+        }
+        return { lessonId, lessonSkipped: false };
+      } catch (e: any) {
+        const msg = String(e?.message || e);
+        recordBatch('lesson_error', p.sourceId, '', msg);
+        return { lessonSkipped: false, lessonError: msg };
+      }
     }
 
     // ── 1. dry-run 预览：只读，不发任何写语句 ─────────────────
@@ -354,7 +405,15 @@ export default {
           .prepare(`SELECT target_id FROM ${batchTable} WHERE kind = 'courseware' AND source_key = ? ORDER BY created_at DESC`)
           .get(p.sourceId);
         if (previous?.target_id && !p.force) {
-          return { ok: true, skipped: true, coursewareId: previous.target_id };
+          // 课件已存在：跳过课件重传，但仍补建缺失的课程条目（课程与课件独立幂等）
+          let lessonId: string | undefined;
+          let lessonSkipped = false;
+          if (p.createLesson !== false) {
+            const lr = await ensureLessonForCourse(p, command.actorId);
+            lessonId = lr.lessonId;
+            lessonSkipped = lr.lessonSkipped;
+          }
+          return { ok: true, skipped: true, coursewareId: previous.target_id, lessonId, lessonSkipped };
         }
         const base64Data = Buffer.from(p.html, 'utf8').toString('base64');
         const cmd = await commandBus.createCommand(
@@ -380,49 +439,9 @@ export default {
         let lessonId: string | undefined;
         let lessonSkipped = false;
         if (p.createLesson !== false) {
-          const prevLesson = db
-            .prepare(`SELECT target_id FROM ${batchTable} WHERE kind = 'lesson' AND source_key = ? ORDER BY created_at DESC`)
-            .get(p.sourceId);
-          if (prevLesson?.target_id && !p.force) {
-            lessonId = prevLesson.target_id;
-            lessonSkipped = true;
-          } else {
-            try {
-              const md = htmlToMarkdown(p.html);
-              const content = [
-                `> 本课程由旧版 LearnSite 迁移而来（来源编号 ${p.sourceId}）。`,
-                `> 完整交互内容请打开同名 HTML 课件「${p.title}」（系统资源库），课程页图片即该课件的资源文件。`,
-                '',
-                md,
-              ].join('\n');
-              const lcmd = await commandBus.createCommand(
-                'lesson.create',
-                { title: p.title, content },
-                command.actorId,
-                { approved: true },
-              );
-              const lr: any = await commandBus.execute(lcmd);
-              lessonId = lr?.lessonId ?? lr?.result?.lessonId;
-              if (lessonId) {
-                recordBatch('lesson', p.sourceId, lessonId, { title: p.title });
-                const scmd = await commandBus.createCommand(
-                  'lesson.add_segment',
-                  {
-                    lessonId,
-                    title: '互动练习',
-                    duration: '40m',
-                    type: 'practice',
-                    notes: `打开本课迁移的 HTML 课件「${p.title}」（系统资源库）进行互动教学`,
-                  },
-                  command.actorId,
-                  { approved: true },
-                );
-                await commandBus.execute(scmd);
-              }
-            } catch (e: any) {
-              recordBatch('lesson_error', p.sourceId, '', String(e?.message || e));
-            }
-          }
+          const lr = await ensureLessonForCourse(p, command.actorId);
+          lessonId = lr.lessonId;
+          lessonSkipped = lr.lessonSkipped;
         }
 
         await publishEvent(

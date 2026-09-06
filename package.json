@@ -1,6 +1,6 @@
 {
   "name": "openlearn-plugin-legacy-migrator",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "将旧版 LearnSite 导出包（班级/学生/课程及资源）导入 openlearn-next 的迁移插件",
