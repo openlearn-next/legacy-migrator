@@ -3,6 +3,7 @@ import {
   EXPORT_SCHEMA_VERSION,
   LEGACY_VFS_ROOT,
   sanitizeRelPath,
+  htmlToMarkdown,
 } from './shared';
 
 /**
@@ -61,7 +62,7 @@ export default {
   manifest: {
     id: '@aymwoo/plugin-legacy-migrator',
     name: '旧版数据迁移',
-    version: '0.1.4',
+    version: '0.2.0',
     description: '将旧版 LearnSite 导出包（班级/学生/课程及资源文件）导入 openlearn-next，支持 dry-run 预览、幂等重放与导入审计',
     author: 'WuXiangfeng',
     engines: { openlearn: '>=0.2.5' },
@@ -70,7 +71,10 @@ export default {
       '@openlearn/core:IEventBusService@^1.0.0',
       '@openlearn/core:IDatabase@^1.0.0',
     ],
-    capabilitiesProposed: ['class:read', 'class:write', 'student:read', 'student:write'],
+    capabilitiesProposed: [
+      'class:read', 'class:write', 'student:read', 'student:write',
+      'lesson:read', 'lesson:write',
+    ],
   },
 
   async activate(ctx: PluginContext) {
@@ -340,6 +344,8 @@ export default {
           term?: number;
           classScope?: string;
           force?: boolean;
+          /** 同时在课程列表创建课程（默认 true）：正文为 Markdown 转换 + 指向 HTML 课件的课堂环节 */
+          createLesson?: boolean;
         };
         if (!p?.sourceId || !p?.title || typeof p.html !== 'string') {
           throw new Error('课程导入缺少 sourceId/title/html');
@@ -369,11 +375,61 @@ export default {
           published: !!p.published,
           bytes: p.html.length,
         });
+
+        // —— 双写：在课程列表创建同名课程（可关闭）——
+        let lessonId: string | undefined;
+        let lessonSkipped = false;
+        if (p.createLesson !== false) {
+          const prevLesson = db
+            .prepare(`SELECT target_id FROM ${batchTable} WHERE kind = 'lesson' AND source_key = ? ORDER BY created_at DESC`)
+            .get(p.sourceId);
+          if (prevLesson?.target_id && !p.force) {
+            lessonId = prevLesson.target_id;
+            lessonSkipped = true;
+          } else {
+            try {
+              const md = htmlToMarkdown(p.html);
+              const content = [
+                `> 本课程由旧版 LearnSite 迁移而来（来源编号 ${p.sourceId}）。`,
+                `> 完整交互内容请打开同名 HTML 课件「${p.title}」（系统资源库），课程页图片即该课件的资源文件。`,
+                '',
+                md,
+              ].join('\n');
+              const lcmd = await commandBus.createCommand(
+                'lesson.create',
+                { title: p.title, content },
+                command.actorId,
+                { approved: true },
+              );
+              const lr: any = await commandBus.execute(lcmd);
+              lessonId = lr?.lessonId ?? lr?.result?.lessonId;
+              if (lessonId) {
+                recordBatch('lesson', p.sourceId, lessonId, { title: p.title });
+                const scmd = await commandBus.createCommand(
+                  'lesson.add_segment',
+                  {
+                    lessonId,
+                    title: '互动练习',
+                    duration: '40m',
+                    type: 'practice',
+                    notes: `打开本课迁移的 HTML 课件「${p.title}」（系统资源库）进行互动教学`,
+                  },
+                  command.actorId,
+                  { approved: true },
+                );
+                await commandBus.execute(scmd);
+              }
+            } catch (e: any) {
+              recordBatch('lesson_error', p.sourceId, '', String(e?.message || e));
+            }
+          }
+        }
+
         await publishEvent(
           'legacymigrator.courseware.imported',
-          { sourceId: p.sourceId, coursewareId, title: p.title },
+          { sourceId: p.sourceId, coursewareId, lessonId, title: p.title },
         );
-        return { ok: true, skipped: false, coursewareId };
+        return { ok: true, skipped: false, coursewareId, lessonId, lessonSkipped };
       },
     });
 

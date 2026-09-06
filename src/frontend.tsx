@@ -39,6 +39,7 @@ function MainPanel() {
   const [pkg, setPkg] = React.useState(null);
   const [preview, setPreview] = React.useState(null);
   const [force, setForce] = React.useState(false);
+  const [createLesson, setCreateLesson] = React.useState(true);
   const [progress, setProgress] = React.useState(null);
   const [result, setResult] = React.useState(null);
   const [error, setError] = React.useState('');
@@ -179,9 +180,14 @@ function MainPanel() {
             term: c.term,
             classScope: c.classScope,
             force,
+            createLesson,
           });
           if (res && res.skipped) summary.skippedCourses++;
-          else summary.courses++;
+          else {
+            summary.courses++;
+            if (res && res.lessonId) summary.lessons = (summary.lessons || 0) + 1;
+            else if (res && res.lessonSkipped) summary.lessonsSkipped = (summary.lessonsSkipped || 0) + 1;
+          }
         } catch (e: any) {
           summary.errors.push(`课程「${c.title}」(${c.sourceId}): ${e?.message || e}`);
         }
@@ -239,6 +245,9 @@ function MainPanel() {
       h('label', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 10, fontSize: 13 } },
         h('input', { type: 'checkbox', checked: force, onChange: (e: any) => setForce(e.target.checked) }),
         '重新导入已导入过的课程（生成新课件）'),
+      h('label', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, fontSize: 13 } },
+        h('input', { type: 'checkbox', checked: createLesson, onChange: (e: any) => setCreateLesson(e.target.checked) }),
+        '同时在课程列表创建课程（正文为 Markdown 摘要，课堂环节指向 HTML 课件）'),
       h('button', {
         style: { ...btn, marginTop: 12, background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff' },
         onClick: runImport, disabled: phase === 'importing',
@@ -263,6 +272,8 @@ function MainPanel() {
         el('建立学生-班级关联', result.memberships, false),
         el('迁移资源文件', result.resources, false),
         el('导入课程课件', result.courses, false),
+        result.lessons ? el('创建课程（课程列表可见）', result.lessons, false) : null,
+        result.lessonsSkipped ? el('跳过课程创建（已存在）', result.lessonsSkipped, false) : null,
         el('跳过（已导入过）', result.skippedCourses, false),
       )),
       result.errors && result.errors.length > 0
@@ -270,7 +281,7 @@ function MainPanel() {
           `⚠️ ${result.errors.length} 条非致命错误：`,
           h('ul', { style: { margin: '4px 0 0 16px' } },
             result.errors.slice(0, 10).map((e: string, i: number) => h('li', { key: i }, e))))
-        : h('div', { style: { marginTop: 8, color: '#15803d', fontSize: 13 } }, '✅ 全部成功。课程可在「课件中心」查看，图片资源已改写为新平台 /files/ 路径。')) : null,
+        : h('div', { style: { marginTop: 8, color: '#15803d', fontSize: 13 } }, '✅ 全部成功。课程已进入课程列表（可选），HTML 课件在系统资源库，图片资源已改写为新平台 /files/ 路径。')) : null,
 
     h('div', { style: { fontSize: 12, color: '#94a3b8', display: 'flex', gap: 12 } },
       h('a', { onClick: resetAudit, style: { cursor: 'pointer', textDecoration: 'underline' } }, '清空导入审计记录（不影响已导入数据）'),

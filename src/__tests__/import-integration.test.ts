@@ -106,7 +106,7 @@ describe('legacy-migrator 导入链路（集成）', () => {
     expect(again.updated).toBe(2);
     expect(Object.keys(again.map)).toHaveLength(2);
     expect(again.map['3.2']).toBe(first.map['3.2']);
-    const row = db.prepare('SELECT class_passcode FROM classes WHERE name = ?').get('3.2');
+    const row = db.prepare('SELECT class_passcode FROM classes WHERE name = ?').get('3.2')!;
     expect(row.class_passcode).toBe('1234');
   });
 
@@ -123,13 +123,13 @@ describe('legacy-migrator 导入链路（集成）', () => {
     });
     expect(again.created).toBe(0);
     expect(again.updated).toBe(1);
-    const pwd = db.prepare('SELECT password FROM students WHERE student_number = ?').get('S2026001');
+    const pwd = db.prepare('SELECT password FROM students WHERE student_number = ?').get('S2026001')!;
     expect(pwd.password).toBe('newpwd');
   });
 
   it('班级-学生关联幂等', async () => {
-    const classId = db.prepare('SELECT id FROM classes WHERE name = ?').get('3.2').id;
-    const studentId = db.prepare('SELECT id FROM students WHERE student_number = ?').get('S2026001').id;
+    const classId = db.prepare('SELECT id FROM classes WHERE name = ?').get('3.2')!.id;
+    const studentId = db.prepare('SELECT id FROM students WHERE student_number = ?').get('S2026001')!.id;
     const first = await call('import.membership', { items: [{ classId, studentId }] });
     expect(first.added).toBe(1);
     const again = await call('import.membership', { items: [{ classId, studentId }] });
@@ -149,12 +149,12 @@ describe('legacy-migrator 导入链路（集成）', () => {
     expect(again.createdFiles).toBe(0);
     expect(again.skippedExisting).toBe(2);
     // 验证目录链完整：root(legacy) → docs → 课件 2024 → file
-    const root = db.prepare('SELECT id FROM vfs_nodes WHERE parent_id IS NULL AND name = ?').get('legacy');
+    const root = db.prepare('SELECT id FROM vfs_nodes WHERE parent_id IS NULL AND name = ?').get('legacy')!;
     expect(root.id).toBeTruthy();
     const evil = await call('import.resources', { items: [{ relPath: '../evil.png', base64: 'eg==' }] });
     expect(evil.errors[0]).toMatch(/非法资源路径/);
     // /files 解析链可达该文件
-    const docs = db.prepare('SELECT id FROM vfs_nodes WHERE parent_id = ? AND name = ? AND type = ?').get(root.id, 'docs', 'dir');
+    const docs = db.prepare('SELECT id FROM vfs_nodes WHERE parent_id = ? AND name = ? AND type = ?').get(root.id, 'docs', 'dir')!;
     expect(docs.id).toBeTruthy();
   });
 
@@ -166,7 +166,7 @@ describe('legacy-migrator 导入链路（集成）', () => {
     const first = await call('import.courseware', payload);
     expect(first.skipped).toBe(false);
     expect(first.coursewareId).toMatch(/^cw_/);
-    const row = db.prepare('SELECT name, type FROM courseware WHERE id = ?').get(first.coursewareId);
+    const row = db.prepare('SELECT name, type FROM courseware WHERE id = ?').get(first.coursewareId)!;
     expect(row.name).toBe('第一课 认识计算机');
     expect(row.type).toBe('html');
     const again = await call('import.courseware', payload);

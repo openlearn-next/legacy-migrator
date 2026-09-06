@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-06
+
+### Added
+
+- **课程双写**：`import.courseware` 新增 `createLesson`（默认开）——除 HTML 课件外，同时在课程列表创建同名课程，正文为轻量 HTML→Markdown 转换（标题/列表/加粗斜体/图片/链接，图片保留 `/files/legacy/...` 改写路径，react-markdown 可直接渲染），并自动添加一个指向 HTML 课件的"互动练习"课堂环节。解决"导入后课程列表看不到旧课程"的问题。幂等：lesson 按 sourceId 断点续传，`force` 时随课件重建。
+- manifest 增补 `lesson:read`/`lesson:write` 能力声明。
+
 ## [0.1.4] - 2026-09-06
 
 ### Fixed

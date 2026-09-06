@@ -20,7 +20,7 @@ learnsite SQL Server ──→ learnsite_to_openlearn_next_*.zip ──上传─
 | `Room`（Rgrade.Rclass） | `classes.name` / `class_passcode` | 名称沿用旧站"年级.班号"惯例 |
 | `Students.Snum/Sname/Spwd` | `students.student_number/name/password` | 按 student_number 幂等，密码明文直迁 |
 | `Students.Sgrade+Sclass` | `class_students` 关联 | |
-| `Courses.Ctitle/Ccontent` | `courseware`（HTML 课件） | 复用平台 `courseware.upload`，内容原样保留 |
+| `Courses.Ctitle/Ccontent` | `courseware`（HTML 课件）+ `lessons`（课程，双写） | 课件复用平台 `courseware.upload` 原样保留；课程正文为 Markdown 摘要 + 指向课件的课堂环节 |
 | 课程 HTML 内 `/images/...` 等资源 | `vfs_nodes` → `/files/legacy/...` | 导出时已改写为 `resources/...`，导入时改写为 `/files/legacy/...` |
 
 不迁移：学生小组/成绩字段（新平台无对应结构）、指向旧站 .aspx 页面的内部链接、外部链接。

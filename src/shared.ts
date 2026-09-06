@@ -67,3 +67,58 @@ export function chunkBySerializedSize<T>(items: T[], maxBytes: number, measure: 
   if (cur.length > 0) out.push(cur);
   return out;
 }
+
+const ENTITIES: Record<string, string> = {
+  '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+  '&quot;': '"', '&#39;': '\'', '&apos;': '\'',
+};
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&(nbsp|amp|lt|gt|quot|apos|#39);/g, (m) => ENTITIES[m] ?? m)
+    .replace(/&#(\d+);/g, (match, n) => {
+      const code = Number(n);
+      return code > 0 && code < 0x110000 ? String.fromCodePoint(code) : match;
+    });
+}
+
+/**
+ * 轻量 HTML → Markdown（供旧课程在课程列表/课程页渲染）。
+ * 面向 LearnSite 编辑器（kindeditor）的常见输出：块级标签、标题、列表、加粗/斜体、
+ * 图片与链接（图片保留改写后的 /files/... 绝对路径，react-markdown 可直接渲染）。
+ * 表格等复杂结构降级为纯文本行，<script>/<style> 整块剔除。
+ */
+export function htmlToMarkdown(html: string): string {
+  let s = html ?? '';
+  if (!s.trim()) return '(本课程无文本内容，请打开对应的 HTML 课件查看)';
+  s = s
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, '');
+
+  // 图片与链接先行处理（需要在剥属性前提取）
+  s = s.replace(/<img\b[^>]*?src\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>/gi,
+    (_m, d, q) => `![](${(d ?? q ?? '').trim()})`);
+  s = s.replace(/<a\b[^>]*?href\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>([\s\S]*?)<\/a>/gi,
+    (_m, href, _q, text) => `[${text.trim()}](${(href ?? '').trim()})`);
+
+  // 块级结构
+  s = s.replace(/<h([1-6])\b[^>]*>/gi, (_m, n) => `\n${'#'.repeat(Number(n))} `);
+  s = s.replace(/<li\b[^>]*>/gi, '\n- ');
+  s = s.replace(/<\/(p|div|ul|ol|table|thead|tbody|tr|h[1-6]|blockquote|pre|section|article)>/gi, '\n');
+  s = s.replace(/<br\s*\/?>/gi, '\n');
+  s = s.replace(/<(strong|b)\b[^>]*>/gi, '**').replace(/<\/(strong|b)>/gi, '**');
+  s = s.replace(/<(em|i)\b[^>]*>/gi, '*').replace(/<\/(em|i)>/gi, '*');
+  s = s.replace(/<(td|th)\b[^>]*>/gi, ' | ').replace(/<\/(td|th)>/gi, '');
+
+  // 剩余标签全部剥离，转实体，收敛空行
+  s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+  s = decodeEntities(s);
+  s = s
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return s || '(本课程无文本内容，请打开对应的 HTML 课件查看)';
+}

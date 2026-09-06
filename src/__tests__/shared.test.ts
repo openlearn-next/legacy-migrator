@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   chunk,
   chunkBySerializedSize,
+  htmlToMarkdown,
   legacyFileUrl,
   rewriteResourceRefs,
   sanitizeRelPath,
@@ -59,5 +60,38 @@ describe('chunk / chunkBySerializedSize', () => {
 describe('legacyFileUrl', () => {
   it('拼接 /files 前缀', () => {
     expect(legacyFileUrl('images/a.png')).toBe('/files/legacy/images/a.png');
+  });
+});
+
+describe('htmlToMarkdown', () => {
+  it('转换标题/加粗/列表/图片', () => {
+    const html = '<h1>标题</h1><p>你好 <b>世界</b></p><ul><li>甲</li><li>乙</li></ul>' +
+      '<img src="/files/legacy/images/a.png" alt="图">';
+    const md = htmlToMarkdown(html);
+    expect(md).toContain('# 标题');
+    expect(md).toContain('**世界**');
+    expect(md).toContain('- 甲');
+    expect(md).toContain('![](/files/legacy/images/a.png)');
+    expect(md).not.toContain('<');
+  });
+
+  it('链接转 Markdown 并保留 href', () => {
+    const md = htmlToMarkdown('<p><a href="https://example.com">官网</a></p>');
+    expect(md).toContain('[官网](https://example.com)');
+  });
+
+  it('剔除 script/style 与表格标签降级为文本', () => {
+    const md = htmlToMarkdown('<script>alert(1)</script><table><tr><td>甲</td><td>乙</td></tr></table>');
+    expect(md).not.toContain('alert');
+    expect(md).toContain('甲');
+    expect(md).toContain('乙');
+  });
+
+  it('解码常见实体', () => {
+    expect(htmlToMarkdown('<p>A&amp;B&nbsp;C&lt;D&gt;</p>')).toContain('A&B C<D>');
+  });
+
+  it('空内容给占位说明', () => {
+    expect(htmlToMarkdown('')).toBe('(本课程无文本内容，请打开对应的 HTML 课件查看)');
   });
 });
