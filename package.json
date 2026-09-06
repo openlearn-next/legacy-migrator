@@ -1,0 +1,27 @@
+{
+  "name": "openlearn-plugin-legacy-migrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "将旧版 LearnSite 导出包（班级/学生/课程及资源）导入 openlearn-next 的迁移插件",
+  "author": "WuXiangfeng",
+  "dependencies": {
+    "@openlearn/plugin-sdk": "^3.5.2"
+  },
+  "peerDependencies": {
+    "react": ">=17",
+    "react-dom": ">=17"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "@types/react": "^18.0.0",
+    "esbuild": "^0.24.0",
+    "jszip": "^3.10.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
+  },
+  "scripts": {
+    "build": "plugin-sdk build",
+    "test": "vitest run"
+  }
+}

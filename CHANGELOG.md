@@ -1,0 +1,16 @@
+# Changelog
+
+本文件记录 `@aymwoo/plugin-legacy-migrator` 的变更，遵循 Keep a Changelog 规范。
+
+## [Unreleased]
+
+## [0.1.0] - 2026-09-06
+
+### Features
+
+- 教师端「旧版迁移」标签页：上传旧站导出 ZIP → 预览冲突统计 → 分块导入 → 进度与结果报告
+- 服务端命令：`legacymigrator.import.preview/classes/students/membership/resources/courseware/finalize/status/reset`
+- 班级按名称幂等、学生按学号幂等（密码同步更新）、资源按路径幂等写入 VFS
+- 课程导入复用平台 `courseware.upload`，HTML 内 `resources/...` 引用改写为 `/files/legacy/...`
+- 导入审计表 `import_batches` 支持断点续传；命令均校验教师/管理员身份
+- 资源批量上传按序列化体积分批（≤1.5MB/命令），规避平台 10MB 请求体限制
