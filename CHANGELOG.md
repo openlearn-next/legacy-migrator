@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-06
+
+### Fixed
+
+- 修正课程导入的审计记录：宿主 `courseware.upload` 实际返回 `{ success, id, uuid, ... }`，此前取 `coursewareId` 字段落空导致审计表记录兜底占位 ID。经 npm 发行版 0.3.2 真实宿主端到端验收发现并修复（同时完整验证了 preview/classes/students/membership/resources/courseware/finalize 全链路、幂等重放与 /files 资源服务）。
+
 ## [0.1.3] - 2026-09-06
 
 ### Fixed

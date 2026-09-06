@@ -61,7 +61,7 @@ export default {
   manifest: {
     id: '@aymwoo/plugin-legacy-migrator',
     name: '旧版数据迁移',
-    version: '0.1.3',
+    version: '0.1.4',
     description: '将旧版 LearnSite 导出包（班级/学生/课程及资源文件）导入 openlearn-next，支持 dry-run 预览、幂等重放与导入审计',
     author: 'WuXiangfeng',
     engines: { openlearn: '>=0.2.5' },
@@ -358,8 +358,10 @@ export default {
           { approved: true },
         );
         const result: any = await commandBus.execute(cmd);
-        const coursewareId =
-          result?.coursewareId || result?.result?.coursewareId || `cw_legacy_${p.sourceId}`;
+        // 0.2.x/0.3.x 的 courseware.upload 返回 { success, id, uuid, name, entry }
+        const rid =
+          result?.id ?? result?.coursewareId ?? result?.result?.id ?? result?.result?.coursewareId;
+        const coursewareId = rid || `cw_legacy_${p.sourceId}`;
         recordBatch('courseware', p.sourceId, coursewareId, {
           title: p.title,
           term: p.term,
